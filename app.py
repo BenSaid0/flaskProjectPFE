@@ -1,5 +1,5 @@
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 
@@ -11,7 +11,7 @@ db = SQLAlchemy(app)
 ma = Marshmallow(app)
 
 equipe_members = db.Table('equipe_members',
-                          db.Column('iduser', db.Integer, db.ForeignKey('user.id')),
+                          db.Column('id', db.Integer, db.ForeignKey('user.id')),
                           db.Column('id_equipe', db.String(15), db.ForeignKey('equipe.id_equipe')),
                           db.Column('leader', db.Boolean, nullable=False, default=True)
                           )
@@ -67,6 +67,11 @@ class Equipe(db.Model):
         self.id_equipe = id_equipe
 
 
+class EquipeSchema(ma.Schema):
+    class Meta:
+        fields = ['id_equipe']
+
+
 class Type_contrat(db.Model):
     id_type_contrat = db.Column(db.String(10), primary_key=True)
     users = db.relationship('User', backref='owner')
@@ -93,11 +98,21 @@ class Conge(db.Model):
         self.date_fi_conge = date_fi_conge
 
 
+class CongeSchema(ma.Schema):
+    class Meta:
+        fields = ['id_type_conge, id_user, date_de_conge, date_fi_conge']
+
+
 class Type_conge(db.Model):
     id_type_conge = db.Column(db.String(30), primary_key=True)
 
     def __init__(self, id_type_conge):
         self.id_type_conge = id_type_conge
+
+
+class Type_congeSchema(ma.Schema):
+    class Meta:
+        fields = ['id_type_conge']
 
 
 class Email(db.Model):
@@ -117,6 +132,11 @@ class Email(db.Model):
         self.destination = destination
 
 
+class EmailSchema(ma.Schema):
+    class Meta:
+        fields = ['id_email, date, id_user, object_em, contenu, destination']
+
+
 class Template_email(db.Model):
     key = db.Column(db.String(20), primary_key=True)
     object_tem = db.Column(db.String(50))
@@ -126,6 +146,11 @@ class Template_email(db.Model):
         self.key = key
         self.object_tem = object_tem
         self.contenu = contenu
+
+
+class Template_emailSchema(ma.Schema):
+    class Meta:
+        fields = ['key, object_tem, contenu']
 
 
 class Jour_feriee(db.Model):
@@ -206,6 +231,41 @@ def get_contrats():
     contrats = Type_contratSchema(many=True)
     res_cont = contrats.dump(allcontrats)
     return jsonify(res_cont)
+
+
+@app.route('/users/<int:id>/modify', methods=['PUT'])
+def update_user(id):
+    user = request.get_json()
+    user_data = User.query.get_or_404(id)
+    if request.method == 'PUT':
+        user_data.id_type_contrat = user['id_type_contrat']
+        user_data.nom = user['nom']
+        user_data.prenom = user['prenom']
+        user_data.cin = user['cin']
+        user_data.date_nai = user['date_nai']
+        user_data.num_tel = user['num_tel']
+        user_data.email_user = user['email_user']
+        user_data.role = user['role']
+        user_data.date_de_contrat = user['date_de_contrat']
+        user_data.date_fi_contrat = user['date_fi_contrat']
+        user_data.poste = user['poste']
+        db.session.commit()
+    return redirect('/users')
+
+
+@app.route('/users/<int:id>/delete', methods=['DELETE'])
+def delete_users(id):
+    user = User.query.get_or_404(id)
+    db.session.delete(user)
+    db.session.commit()
+    return {'success': 'sa7it'}
+
+
+@app.route('/users/<int:id>/', methods=['GET'])
+def get_user(id):
+    user = User.query.filter_by(id=id).first_or_404()
+    user_data = UserSchema().dump(user)
+    return jsonify(user_data)
 
 
 if __name__ == '__main__':
